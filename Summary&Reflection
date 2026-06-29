@@ -4,32 +4,19 @@ Nahom Haile
 
 Software Test & Automation 
 
- 
-
 Summary 
-
- 
 
 Unit Testing Approach for the Three Features 
 
 Project One required me to develop three back-end services for a mobile application, the contact service, the task service, and the appointment service. For each feature, the testing approach followed the same pattern of a model class enforced field-level validation rules, a service class (ContactService, TaskService, or AppointmentService) managed an in-memory collection of those objects, and two corresponding JUnit test classes verified that every requirement was satisfied. This consistency allowed validation logic to be unit tested directly on the model class while each operation was tested independently on the service class, isolating two different concerns and making failures easier to localize. 
 
- 
-
 My approach was aligned closely with the customer's stated requirements because each requirement was translated into one or more explicit test methods. For the contact service, the requirement that the contact ID "shall not be null and shall not be updatable" was verified by testContactIdNull_throwsException(), which confirms a thrown IllegalArgumentException, and testContactIdIsImmutable(), which confirms no setter exists for that field. The phone field requirement of "exactly 10 digits" was covered by four distinct tests representing null input, too few digits, too many digits, and non-numeric characters. For the appointment service, the unusual requirement that the appointmentDate field "cannot be in the past" using before(new Date()) was tested with dates set to yesterday, 30 days in the past, tomorrow, and one year in the future, ensuring the boundary around the present moment was thoroughly exercised. Each of these tests map directly back to a sentence in the original requirements document, providing clear evidence of alignment. 
 
- 
-
 The overall quality of the JUnit test suite is defensible on the basis of both volume and structure. Across all three features, 12 source files and 129 individual test methods were written. Every public method on every model and service class has at least one positive test confirming correct behavior on valid input, and one or more negative tests confirming an IllegalArgumentException is thrown on invalid input. This pairing of positive and negative tests for every method, combined with boundary value tests at the exact edge of every length and date restriction, produces high statement and branch coverage. This means that nearly every line of validation logic, and every branch of every conditional statement, is executed by at least one test, which is the practical definition of strong code coverage rather than simply running the code once and observing no crash. 
-
- 
 
 Experience Writing the JUnit Tests 
 
 Writing the JUnit tests required care to ensure the code was technically sound. The clearest illustration of this is the consistent use of the @Test(expected = IllegalArgumentException.class) annotation for every test that should produce an error. For example: 
-
- 
-
 @Test(expected = IllegalArgumentException.class) 
 
 public void testPhoneTooShort_throwsException() { 
@@ -37,17 +24,9 @@ public void testPhoneTooShort_throwsException() {
     new Contact("ID001", "John", "Doe", "123456789", "123 Main St"); 
 
 } 
-
- 
-
 The test only passes if the exact exception type is thrown, meaning a test would fail if the wrong type of exception occurred or if no exception occurred at all. This is far more rigorous than simply wrapping code in a try/catch block and printing a message, which can silently mask the wrong kind of failure. Equally, for successful operations, exact-value assertions were used rather than loose checks. For example, assertEquals("Johnny",service.getContact("ID001").getFirstName()) after calling updateFirstName() confirms not just that no exception was thrown, but that the correct value persisted in the underlying HashMap. 
 
- 
-
 Efficiency in the test code was achieved primarily through the JUnit @Before annotation, which rebuilds a fresh object before every test method runs. Rather than repeating a multi-argument constructor call in every test, a single setUp() method handles it once per test: 
-
- 
-
 @Before 
 
 public void setUp() { 
@@ -57,9 +36,6 @@ public void setUp() {
     service.addContact(new Contact("ID001", "John", "Doe", "5551234567", "123 Main St")); 
 
 } 
-
- 
-
 A private helper method such as makeContact(String id) further reduced duplication whenever a test needed a second or third valid object with only the ID changing. This kept each individual test method short and focused exclusively on the single behavior being verified, which made the suite easier to read, and faster to extend if requirements changed in the future. 
 
  
@@ -72,33 +48,21 @@ Testing Techniques
 
 The primary technique employed across the project was unit testing, a white-box technique in which an individual class or method is verified in isolation from the rest of the system. Within this broader practice, two specific strategies were applied consistently. Equivalence partitioning divided possible inputs into groups expected to behave identically, then tested one representative value from each group. for example, the valid partition for the phone field (any 10-digit string) was tested once, while the invalid partitions were each tested as a separate, distinct case. Boundary value analysis focused testing on values at the edge of acceptable ranges, since defects are statistically more likely to occur at boundaries than in the middle of a valid range. This was used for every length of restriction in the project, testing values exactly at the limit (10, 20, 30, or 50 characters) alongside values of one character over the limit. 
 
- 
-
 Several other recognized techniques were not used in this project. Integration testing verifies that multiple components function correctly once combined, such as confirming that the contact service and a future notification feature interact correctly. This was not applicable because each service was developed and tested independently with no shared dependencies. System testing evaluates a fully integrated application, including its user interface, against complete functional requirements in an environment resembling production. This did not apply because Project One explicitly had no user interface. Regression testing re-runs an existing suite after a code change to confirm nothing was broken. While the JUnit suite produced here is well positioned to serve this purpose going forward, no further code changes occurred after the tests initially passed, so regression testing was not formally exercised in this round. 
 
- 
-
 Each of these techniques carries a distinct practical value depending on the context of the project. Unit testing, equivalence partitioning, and boundary value analysis are most valuable early in development, when rapid, localized feedback on a small piece of logic saves significant debugging time later. They are also cost-effective, by detecting the majority of input-validation defects without the overhead of testing every conceivable input value. Integration and system testing become essential as a project scales beyond isolated services, since most real-world defects emerge at the seams between components rather than within a single class. Regression testing is most valuable in any actively maintained codebase, particularly in agile environments where frequent small changes create a continuous risk of unintentionally breaking previously correct behavior. 
-
- 
 
 Mindset 
 
 Acting in the role of software tester required a different mindset than acting purely as the developer who had just written the code. Caution was essential because validation logic frequently interacts in ways that are not obvious from reading a single method in isolation. The appointment service's date validation depends on the system clock at the moment a test runs, a hardcoded future date string would eventually become a past date and silently break the test suite months later. I addressed this by deliberately using Calendar.getInstance() combined with relative offsets, such as adding 30 days to the current date, so that every test remains valid regardless of when it is executed. This required appreciating that the appointment date field, the system clock, and the test's reliability over time were all interrelated, even though that relationship was not stated explicitly in the requirements. 
 
- 
-
 Limiting bias in reviewing the code was equally important. Because I had written both the implementation and the tests, there was a natural risk of testing only the inputs I expected to work and unconsciously avoiding inputs likely to expose a flaw I had already overlooked while coding. To counter this, I treated each requirement statement as an independent checklist item rather than relying on my memory of how I had implemented the corresponding method, and I deliberately wrote negative tests before re-reading my own implementation logic. For example, rather than assuming the phone field validation was correct because I remembered writing a regular expression for it, I wrote a dedicated test using a string of letters with no digits at all to confirm the regex genuinely rejected non-numeric input rather than simply checking the string length. Bias would be a significant concern in a professional setting if a developer were solely responsible for testing their own production code, since the same blind spots that produced a defect during implementation are likely to produce a corresponding blind spot during testing; this is precisely why independent or peer-reviewed testing is considered a best practice in professional software engineering. 
-
- 
 
 Finally, discipline and a genuine commitment to quality were necessary throughout the project. Cutting corners at this stage does not save time overall; it simply defers the cost of finding the defect to a later point in the project, when it is more expensive and more disruptive to fix, a phenomenon widely described as technical debt. As a practitioner, I plan to avoid accumulating technical debt by continuing to pair every new method with both positive and negative tests at the time the method is written, rather than treating testing as a separate task to be completed later, and by keeping validation logic centralized in the model classes so that future changes to a business rule only need to be made and tested in a single location rather than scattered across the codebase. 
 
  
 
 References 
-
- 
 
 mparker. (2015, August 3). An overview of software testing. OpenConcept. https://archive.openconcept.ca//blog/mparker/overview-software-testing 
 
